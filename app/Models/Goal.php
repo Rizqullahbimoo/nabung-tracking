@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 class Goal extends Model
 {
@@ -74,5 +75,53 @@ class Goal extends Model
     public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    /**
+     * Total contributed to this goal (SUM of contribution amounts).
+     */
+    public function collectedAmount(): float
+    {
+        return (float) $this->contributions()->sum('amount');
+    }
+
+    /**
+     * Progress toward the target as a whole percentage, capped at 100.
+     */
+    public function progressPercent(): int
+    {
+        $target = (float) $this->target_amount;
+
+        return $target > 0 ? min(100, (int) floor($this->collectedAmount() / $target * 100)) : 0;
+    }
+
+    /**
+     * Per-user contribution totals, shaped like api-spec "contribution_breakdown".
+     *
+     * @return Collection<int, array{user_id: int, name: string|null, total: float}>
+     */
+    public function contributionBreakdown(): Collection
+    {
+        return $this->contributions()
+            ->with('user:id,name')
+            ->get()
+            ->groupBy('user_id')
+            ->map(fn ($rows) => [
+                'user_id' => (int) $rows->first()->user_id,
+                'name' => $rows->first()->user?->name,
+                'total' => (float) $rows->sum('amount'),
+            ])
+            ->sortByDesc('total')
+            ->values();
+    }
+
+    /**
+     * Flip an active goal to "achieved" once its target is reached.
+     */
+    public function syncAchievedStatus(): void
+    {
+        if ($this->status === 'active' && $this->collectedAmount() >= (float) $this->target_amount) {
+            $this->update(['status' => 'achieved']);
+        }
     }
 }

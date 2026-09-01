@@ -22,9 +22,6 @@ new #[Layout('layouts.app')] class extends Component
         $this->goal = $goal;
     }
 
-    /**
-     * Whether the current user proposed this goal.
-     */
     #[Computed]
     public function isProposer(): bool
     {
@@ -32,8 +29,7 @@ new #[Layout('layouts.app')] class extends Component
     }
 
     /**
-     * Whether the current user may approve/reject this goal:
-     * it is still pending and they are the partner, not the proposer.
+     * Pending goal + current user is the partner (not the proposer).
      */
     #[Computed]
     public function canDecide(): bool
@@ -44,15 +40,35 @@ new #[Layout('layouts.app')] class extends Component
     #[Computed]
     public function collected(): float
     {
-        return (float) $this->goal->contributions()->sum('amount');
+        return $this->goal->collectedAmount();
     }
 
     #[Computed]
     public function progress(): int
     {
-        $target = (float) $this->goal->target_amount;
+        return $this->goal->progressPercent();
+    }
 
-        return $target > 0 ? min(100, (int) round($this->collected / $target * 100)) : 0;
+    /**
+     * Per-user totals, shaped like api-spec "contribution_breakdown".
+     */
+    #[Computed]
+    public function breakdown()
+    {
+        return $this->goal->contributionBreakdown();
+    }
+
+    /**
+     * Contribution history, newest first.
+     */
+    #[Computed]
+    public function history()
+    {
+        return $this->goal->contributions()
+            ->with('user:id,name')
+            ->latest('contributed_at')
+            ->latest('id')
+            ->get();
     }
 
     public function approve(): void
@@ -159,5 +175,67 @@ new #[Layout('layouts.app')] class extends Component
                 </div>
             @endif
         </div>
+
+        {{-- Contributions --}}
+        @if (in_array($goal->status, ['active', 'achieved'], true))
+            <div class="mt-6 rounded-card border border-hairline bg-surface p-6 shadow-card sm:p-7"
+                 x-data="{ showForm: false }"
+                 x-on:close-contribution-form.window="showForm = false">
+                <div class="flex items-center justify-between gap-3">
+                    <h2 class="text-lg font-semibold text-ink">Kontribusi</h2>
+                    @if ($goal->status === 'active')
+                        <button type="button" x-on:click="showForm = ! showForm"
+                                class="inline-flex h-10 items-center justify-center rounded-btn bg-primary px-4 text-sm font-semibold text-white transition hover:bg-primary-dark">
+                            + Tambah Kontribusi
+                        </button>
+                    @endif
+                </div>
+
+                @if ($goal->status === 'active')
+                    <div x-show="showForm" x-cloak x-collapse>
+                        <livewire:contributions.create :goal="$goal" :key="'contrib-form-'.$goal->id" />
+                    </div>
+                @endif
+
+                {{-- Breakdown per user (api-spec: contribution_breakdown) --}}
+                @if ($this->breakdown->isNotEmpty())
+                    <div class="mt-5 space-y-2 border-t border-hairline pt-5">
+                        <p class="text-xs font-medium text-ink-muted">Kontribusi per orang</p>
+                        @foreach ($this->breakdown as $row)
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-ink">{{ $row['name'] ?? 'Pengguna' }}</span>
+                                <span class="font-semibold tabular-nums text-ink">Rp {{ number_format($row['total'], 0, ',', '.') }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
+                {{-- History (design.md §6.3) --}}
+                <div class="mt-5 border-t border-hairline pt-5">
+                    <p class="text-xs font-medium text-ink-muted">Riwayat</p>
+                    @if ($this->history->isEmpty())
+                        <p class="mt-3 text-sm text-ink-muted">Belum ada kontribusi. Tambahkan yang pertama.</p>
+                    @else
+                        <ul class="mt-3 space-y-3">
+                            @foreach ($this->history as $item)
+                                <li class="flex items-center gap-3">
+                                    <x-user-avatar :name="optional($item->user)->name" :id="$item->user_id" size="md" />
+                                    <div class="min-w-0 flex-1">
+                                        <p class="truncate text-sm font-medium text-ink">{{ optional($item->user)->name ?? 'Pengguna' }}</p>
+                                        <p class="truncate text-xs text-ink-muted">
+                                            {{ $item->contributed_at->translatedFormat('d M Y') }}
+                                            @if ($item->note) &middot; {{ $item->note }} @endif
+                                        </p>
+                                    </div>
+                                    <span class="shrink-0 text-sm font-semibold tabular-nums text-accent-green">
+                                        + Rp {{ number_format((float) $item->amount, 0, ',', '.') }}
+                                    </span>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </div>
+            </div>
+        @endif
     </div>
 </div>
