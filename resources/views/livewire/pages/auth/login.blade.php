@@ -25,47 +25,56 @@ new #[Layout('layouts.guest')] class extends Component
 }; ?>
 
 <div>
+    <div class="mb-6">
+        <h1 class="text-xl font-bold text-ink">Masuk</h1>
+        <p class="mt-1 text-sm text-ink-muted">Selamat datang kembali.</p>
+    </div>
+
     <!-- Session Status -->
     <x-auth-session-status class="mb-4" :status="session('status')" />
 
-    <form wire:submit="login">
+    <form wire:submit="login" class="space-y-5">
         <!-- Email Address -->
         <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input wire:model="form.email" id="email" class="block mt-1 w-full" type="email" name="email" required autofocus autocomplete="username" />
-            <x-input-error :messages="$errors->get('form.email')" class="mt-2" />
+            <label for="email" class="block text-xs font-medium text-ink-muted">{{ __('Email') }}</label>
+            <input wire:model="form.email" id="email" name="email" type="email" required autofocus autocomplete="username"
+                class="mt-1 w-full border-0 border-b border-hairline bg-transparent px-0 py-2 text-ink placeholder:text-ink-disabled focus:border-primary focus:ring-0" />
+            @error('form.email')
+                <p class="mt-2 text-sm text-accent-red">{{ $message }}</p>
+            @enderror
         </div>
 
         <!-- Password -->
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
-
-            <x-text-input wire:model="form.password" id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="current-password" />
-
-            <x-input-error :messages="$errors->get('form.password')" class="mt-2" />
+        <div>
+            <label for="password" class="block text-xs font-medium text-ink-muted">{{ __('Password') }}</label>
+            <input wire:model="form.password" id="password" name="password" type="password" required autocomplete="current-password"
+                class="mt-1 w-full border-0 border-b border-hairline bg-transparent px-0 py-2 text-ink placeholder:text-ink-disabled focus:border-primary focus:ring-0" />
+            @error('form.password')
+                <p class="mt-2 text-sm text-accent-red">{{ $message }}</p>
+            @enderror
         </div>
 
         <!-- Remember Me -->
-        <div class="block mt-4">
-            <label for="remember" class="inline-flex items-center">
-                <input wire:model="form.remember" id="remember" type="checkbox" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" name="remember">
-                <span class="ms-2 text-sm text-gray-600">{{ __('Remember me') }}</span>
-            </label>
-        </div>
+        <label for="remember" class="inline-flex items-center">
+            <input wire:model="form.remember" id="remember" type="checkbox" name="remember"
+                class="rounded border-hairline text-primary shadow-sm focus:ring-primary">
+            <span class="ms-2 text-sm text-ink-muted">{{ __('Remember me') }}</span>
+        </label>
 
-        <div class="flex items-center justify-end mt-4">
+        <button type="submit"
+            class="flex h-[52px] w-full items-center justify-center rounded-btn bg-primary px-6 font-semibold text-white transition hover:bg-primary-dark">
+            {{ __('Masuk') }}
+        </button>
+
+        <div class="flex items-center justify-between text-sm">
+            <a class="text-ink-muted transition hover:text-primary" href="{{ route('register') }}" wire:navigate>
+                {{ __('Belum punya akun?') }}
+            </a>
             @if (Route::has('password.request'))
-                <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" href="{{ route('password.request') }}" wire:navigate>
-                    {{ __('Forgot your password?') }}
+                <a class="text-ink-muted transition hover:text-primary" href="{{ route('password.request') }}" wire:navigate>
+                    {{ __('Lupa password?') }}
                 </a>
             @endif
-
-            <x-primary-button class="ms-3">
-                {{ __('Log in') }}
-            </x-primary-button>
         </div>
     </form>
 </div>

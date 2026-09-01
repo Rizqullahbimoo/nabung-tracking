@@ -37,52 +37,62 @@ new #[Layout('layouts.guest')] class extends Component
 }; ?>
 
 <div>
-    <form wire:submit="register">
+    <div class="mb-6">
+        <h1 class="text-xl font-bold text-ink">Buat akun</h1>
+        <p class="mt-1 text-sm text-ink-muted">Mulai catat tabungan bersama pasanganmu.</p>
+    </div>
+
+    <form wire:submit="register" class="space-y-5">
         <!-- Name -->
         <div>
-            <x-input-label for="name" :value="__('Name')" />
-            <x-text-input wire:model="name" id="name" class="block mt-1 w-full" type="text" name="name" required autofocus autocomplete="name" />
-            <x-input-error :messages="$errors->get('name')" class="mt-2" />
+            <label for="name" class="block text-xs font-medium text-ink-muted">{{ __('Nama') }}</label>
+            <input wire:model="name" id="name" name="name" type="text" required autofocus autocomplete="name"
+                class="mt-1 w-full border-0 border-b border-hairline bg-transparent px-0 py-2 text-ink placeholder:text-ink-disabled focus:border-primary focus:ring-0" />
+            @error('name')
+                <p class="mt-2 text-sm text-accent-red">{{ $message }}</p>
+            @enderror
         </div>
 
         <!-- Email Address -->
-        <div class="mt-4">
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input wire:model="email" id="email" class="block mt-1 w-full" type="email" name="email" required autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+        <div>
+            <label for="email" class="block text-xs font-medium text-ink-muted">{{ __('Email') }}</label>
+            <input wire:model="email" id="email" name="email" type="email" required autocomplete="username"
+                class="mt-1 w-full border-0 border-b border-hairline bg-transparent px-0 py-2 text-ink placeholder:text-ink-disabled focus:border-primary focus:ring-0" />
+            @error('email')
+                <p class="mt-2 text-sm text-accent-red">{{ $message }}</p>
+            @enderror
         </div>
 
         <!-- Password -->
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
-
-            <x-text-input wire:model="password" id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="new-password" />
-
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+        <div>
+            <label for="password" class="block text-xs font-medium text-ink-muted">{{ __('Password') }}</label>
+            <input wire:model="password" id="password" name="password" type="password" required autocomplete="new-password"
+                class="mt-1 w-full border-0 border-b border-hairline bg-transparent px-0 py-2 text-ink placeholder:text-ink-disabled focus:border-primary focus:ring-0" />
+            @error('password')
+                <p class="mt-2 text-sm text-accent-red">{{ $message }}</p>
+            @enderror
         </div>
 
         <!-- Confirm Password -->
-        <div class="mt-4">
-            <x-input-label for="password_confirmation" :value="__('Confirm Password')" />
-
-            <x-text-input wire:model="password_confirmation" id="password_confirmation" class="block mt-1 w-full"
-                            type="password"
-                            name="password_confirmation" required autocomplete="new-password" />
-
-            <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
+        <div>
+            <label for="password_confirmation" class="block text-xs font-medium text-ink-muted">{{ __('Konfirmasi Password') }}</label>
+            <input wire:model="password_confirmation" id="password_confirmation" name="password_confirmation" type="password" required autocomplete="new-password"
+                class="mt-1 w-full border-0 border-b border-hairline bg-transparent px-0 py-2 text-ink placeholder:text-ink-disabled focus:border-primary focus:ring-0" />
+            @error('password_confirmation')
+                <p class="mt-2 text-sm text-accent-red">{{ $message }}</p>
+            @enderror
         </div>
 
-        <div class="flex items-center justify-end mt-4">
-            <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" href="{{ route('login') }}" wire:navigate>
-                {{ __('Already registered?') }}
+        <button type="submit"
+            class="flex h-[52px] w-full items-center justify-center rounded-btn bg-primary px-6 font-semibold text-white transition hover:bg-primary-dark">
+            {{ __('Buat Akun') }}
+        </button>
+
+        <p class="text-center text-sm text-ink-muted">
+            {{ __('Sudah punya akun?') }}
+            <a class="font-medium text-primary transition hover:text-primary-dark" href="{{ route('login') }}" wire:navigate>
+                {{ __('Masuk') }}
             </a>
-
-            <x-primary-button class="ms-4">
-                {{ __('Register') }}
-            </x-primary-button>
-        </div>
+        </p>
     </form>
 </div>
