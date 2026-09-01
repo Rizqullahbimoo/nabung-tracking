@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -59,5 +60,40 @@ class Pair extends Model
     public function goals(): HasMany
     {
         return $this->hasMany(Goal::class);
+    }
+
+    /**
+     * Limit the query to active pairs.
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('status', 'active');
+    }
+
+    /**
+     * Limit the query to pairs that include the given user.
+     */
+    public function scopeForUser(Builder $query, User $user): Builder
+    {
+        return $query->where(function (Builder $query) use ($user) {
+            $query->where('user_one_id', $user->id)
+                ->orWhere('user_two_id', $user->id);
+        });
+    }
+
+    /**
+     * Return the other member of this pair relative to the given user.
+     */
+    public function partnerOf(User $user): ?User
+    {
+        if ($this->user_one_id === $user->id) {
+            return $this->userTwo;
+        }
+
+        if ($this->user_two_id === $user->id) {
+            return $this->userOne;
+        }
+
+        return null;
     }
 }

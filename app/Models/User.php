@@ -78,4 +78,34 @@ class User extends Authenticatable
     {
         return $this->hasOne(Pair::class, 'user_two_id');
     }
+
+    /**
+     * The user's currently active pair, if any.
+     */
+    public function activePair(): ?Pair
+    {
+        return Pair::query()
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->where('user_one_id', $this->id)
+                    ->orWhere('user_two_id', $this->id);
+            })
+            ->first();
+    }
+
+    /**
+     * Whether this user is currently paired with someone.
+     */
+    public function isPaired(): bool
+    {
+        return $this->activePair() !== null;
+    }
+
+    /**
+     * The partner in this user's active pair, or null if unpaired.
+     */
+    public function partner(): ?User
+    {
+        return $this->activePair()?->partnerOf($this);
+    }
 }
