@@ -1,0 +1,35 @@
+# Anything matched here is NOT sent to the Docker build ("build context").
+# Keeps the image small and prevents secrets/junk from leaking in.
+
+.git
+.gitignore
+.gitattributes
+.github
+
+# Installed by the build itself - never copy the host's copies.
+/node_modules
+/vendor
+/public/build
+/public/hot
+
+# Secrets & local-only config - MUST stay out of the image.
+.env
+.env.*
+!.env.example
+auth.json
+
+# Test / tooling artefacts not needed at runtime.
+/tests
+/phpunit.xml
+.phpunit.result.cache
+.phpunit.cache
+
+# Docs.
+*.md
+!README.md
+
+# Local noise (keeps the storage/ folder structure, drops the contents).
+/storage/logs/*.log
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*.php

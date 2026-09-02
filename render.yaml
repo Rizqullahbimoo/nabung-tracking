@@ -1,0 +1,62 @@
+# Render Blueprint - version-controlled service config.
+# Import this repo as a Blueprint in the Render dashboard, or create the
+# services by hand using these values.
+
+services:
+  # ---- Web service: the Laravel app (built from the Dockerfile) ----
+  - type: web
+    name: nabung-tracking
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /up          # Laravel 11 built-in health endpoint
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_URL
+        sync: false               # set to the real Render URL
+      - key: APP_KEY
+        sync: false               # `php artisan key:generate --show`
+      - key: LOG_CHANNEL
+        value: stderr             # logs -> Render log stream
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        sync: false               # Neon pooler host
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_DATABASE
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_SSLMODE
+        value: require
+      - key: DB_OPTIONS
+        sync: false               # endpoint=ep-xxxx  (Neon SNI workaround)
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+
+  # ---- Cron: weekly savings reminder (PRD F-08) ----
+  # 02:00 UTC Sunday == 09:00 Asia/Jakarta.
+  - type: cron
+    name: nabung-weekly-reminder
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    schedule: "0 2 * * 0"
+    dockerCommand: php artisan reminders:weekly-savings
+    envVars:
+      - fromService:
+          name: nabung-tracking
+          type: web
+          envVarKey: APP_KEY
+      # (repeat the DB_* vars here, or move them into a shared Env Group)
