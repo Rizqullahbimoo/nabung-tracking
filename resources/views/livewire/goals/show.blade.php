@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Contribution;
 use App\Models\Goal;
 use App\Support\Notifier;
 use Illuminate\Support\Facades\Auth;
@@ -10,6 +11,12 @@ use Livewire\Volt\Component;
 new #[Layout('layouts.app')] class extends Component
 {
     public Goal $goal;
+
+    // Inline edit state for one of the current user's own deposit rows.
+    public ?int $editingId = null;
+    public string $editAmount = '';
+    public string $editNote = '';
+    public string $editDate = '';
 
     /**
      * Load the goal and make sure it belongs to the current user's pair.
@@ -79,6 +86,107 @@ new #[Layout('layouts.app')] class extends Component
             ->latest('contributed_at')
             ->latest('id')
             ->get();
+    }
+
+    /**
+     * Ids of deposits that have been "deleted" (a correction row points at them).
+     */
+    #[Computed]
+    public function voidedIds(): array
+    {
+        return $this->goal->contributions()
+            ->whereNotNull('corrects_contribution_id')
+            ->pluck('corrects_contribution_id')
+            ->all();
+    }
+
+    /**
+     * Guard: only the creator may edit/delete their own, non-voided deposit
+     * (F-10). Withdrawals and corrections are never editable here.
+     */
+    private function ownDeposit(int $contributionId): Contribution
+    {
+        $contribution = $this->goal->contributions()->find($contributionId);
+
+        abort_unless(
+            $contribution
+                && $contribution->type === 'deposit'
+                && $contribution->user_id === Auth::id()
+                && ! $contribution->correction()->exists(),
+            403,
+        );
+
+        return $contribution;
+    }
+
+    public function startEdit(int $contributionId): void
+    {
+        $contribution = $this->ownDeposit($contributionId);
+
+        $this->editingId = $contribution->id;
+        $this->editAmount = (string) (int) $contribution->amount;
+        $this->editNote = (string) $contribution->note;
+        $this->editDate = $contribution->contributed_at->toDateString();
+        $this->resetErrorBag();
+    }
+
+    public function cancelEdit(): void
+    {
+        $this->reset('editingId', 'editAmount', 'editNote', 'editDate');
+        $this->resetErrorBag();
+    }
+
+    public function saveEdit(): void
+    {
+        $contribution = $this->ownDeposit((int) $this->editingId);
+
+        $this->editAmount = preg_replace('/\D/', '', (string) $this->editAmount);
+
+        $validated = $this->validate([
+            'editAmount' => ['required', 'numeric', 'min:1', 'max:999999999999'],
+            'editNote' => ['nullable', 'string', 'max:255'],
+            'editDate' => ['required', 'date', 'before_or_equal:today'],
+        ], attributes: [
+            'editAmount' => 'nominal',
+            'editNote' => 'catatan',
+            'editDate' => 'tanggal',
+        ]);
+
+        $contribution->update([
+            'amount' => $validated['editAmount'],
+            'note' => $validated['editNote'] ?: null,
+            'contributed_at' => $validated['editDate'],
+        ]);
+
+        $this->goal->syncAchievedStatus();
+
+        session()->flash('status', 'Kontribusi diperbarui.');
+        $this->redirect(route('goals.show', $this->goal), navigate: true);
+    }
+
+    /**
+     * "Delete" a deposit: keep the row, add a negative correction entry that
+     * reverses it, then re-sync the goal status.
+     */
+    public function deleteContribution(int $contributionId): void
+    {
+        $contribution = $this->ownDeposit($contributionId);
+
+        $this->goal->contributions()->create([
+            'user_id' => $contribution->user_id,
+            'amount' => -1 * (float) $contribution->amount,
+            'type' => 'correction',
+            'note' => 'Koreksi: menghapus kontribusi Rp '
+                .number_format((float) $contribution->amount, 0, ',', '.')
+                .' ('.$contribution->contributed_at->translatedFormat('d M Y').')',
+            'contributed_at' => now()->toDateString(),
+            'corrects_contribution_id' => $contribution->id,
+        ]);
+
+        $this->goal->syncAchievedStatus();
+
+        session()->flash('status', 'Kontribusi dihapus dan dicatat sebagai koreksi.');
+        $this->redirect(route('goals.show', $this->goal), navigate: true);
     }
 
     public function approve(): void
@@ -243,28 +351,119 @@ new #[Layout('layouts.app')] class extends Component
                     @else
                         <ul class="mt-3 space-y-3">
                             @foreach ($this->history as $item)
-                                <li class="flex items-center gap-3">
-                                    <x-user-avatar :name="optional($item->user)->name" :id="$item->user_id" size="md" />
-                                    <div class="min-w-0 flex-1">
-                                        <p class="truncate text-sm font-medium text-ink">
-                                            {{ optional($item->user)->name ?? 'Pengguna' }}
-                                            @if ($item->isWithdrawal())
-                                                <span class="ms-1 rounded-full bg-accent-red/10 px-1.5 py-0.5 text-[10px] font-medium text-accent-red">Penarikan</span>
-                                            @endif
-                                        </p>
-                                        <p class="truncate text-xs text-ink-muted">
-                                            {{ $item->contributed_at->translatedFormat('d M Y') }}
-                                            @if ($item->note) &middot; {{ $item->note }} @endif
-                                        </p>
-                                    </div>
-                                    @if ($item->isWithdrawal())
-                                        <span class="shrink-0 text-sm font-semibold tabular-nums text-accent-red">
-                                            - Rp {{ number_format((float) $item->amount, 0, ',', '.') }}
-                                        </span>
+                                @php
+                                    $voided = in_array($item->id, $this->voidedIds, true);
+                                    $canModify = $item->isDeposit() && $item->user_id === auth()->id() && ! $voided;
+                                @endphp
+
+                                <li>
+                                    @if ($this->editingId === $item->id)
+                                        {{-- Inline edit form --}}
+                                        <form wire:submit="saveEdit" class="space-y-3 rounded-card-sm border border-hairline bg-canvas p-4">
+                                            <div x-data="{
+                                                    raw: @js((string) $editAmount),
+                                                    get formatted() { return this.raw !== '' ? new Intl.NumberFormat('id-ID').format(Number(this.raw)) : ''; },
+                                                    onInput(e) { this.raw = e.target.value.replace(/\D/g, ''); e.target.value = this.formatted; $wire.set('editAmount', this.raw, false); }
+                                                }">
+                                                <label class="block text-xs font-medium text-ink-muted">Nominal (Rp)</label>
+                                                <div class="mt-1 flex items-center border-b border-hairline focus-within:border-primary">
+                                                    <span class="pe-2 text-ink-muted">Rp</span>
+                                                    <input type="text" inputmode="numeric" autocomplete="off" required
+                                                           :value="formatted" x-on:input="onInput($event)"
+                                                           class="w-full border-0 bg-transparent px-0 py-2 font-semibold tabular-nums text-ink focus:ring-0">
+                                                </div>
+                                                @error('editAmount') <p class="mt-1 text-xs text-accent-red">{{ $message }}</p> @enderror
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-medium text-ink-muted">Catatan <span class="text-ink-disabled">(opsional)</span></label>
+                                                <input type="text" wire:model="editNote" maxlength="255"
+                                                       class="mt-1 w-full border-0 border-b border-hairline bg-transparent px-0 py-2 text-sm text-ink focus:border-primary focus:ring-0">
+                                                @error('editNote') <p class="mt-1 text-xs text-accent-red">{{ $message }}</p> @enderror
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-medium text-ink-muted">Tanggal</label>
+                                                <input type="date" wire:model="editDate" max="{{ now()->toDateString() }}"
+                                                       class="mt-1 w-full border-0 border-b border-hairline bg-transparent px-0 py-2 text-sm text-ink focus:border-primary focus:ring-0">
+                                                @error('editDate') <p class="mt-1 text-xs text-accent-red">{{ $message }}</p> @enderror
+                                            </div>
+                                            <div class="flex items-center gap-3 pt-1">
+                                                <button type="submit"
+                                                        class="inline-flex h-9 items-center justify-center rounded-btn bg-primary px-4 text-xs font-semibold text-white transition hover:bg-primary-dark">
+                                                    Simpan
+                                                </button>
+                                                <button type="button" wire:click="cancelEdit"
+                                                        class="text-xs font-medium text-ink-muted transition hover:text-primary">
+                                                    Batal
+                                                </button>
+                                            </div>
+                                        </form>
                                     @else
-                                        <span class="shrink-0 text-sm font-semibold tabular-nums text-accent-green">
-                                            + Rp {{ number_format((float) $item->amount, 0, ',', '.') }}
-                                        </span>
+                                        <div class="flex items-center gap-3 {{ $voided ? 'opacity-60' : '' }}" x-data="{ confirming: false }">
+                                            <x-user-avatar :name="optional($item->user)->name" :id="$item->user_id" size="md" />
+                                            <div class="min-w-0 flex-1">
+                                                <p class="truncate text-sm font-medium text-ink">
+                                                    {{ optional($item->user)->name ?? 'Pengguna' }}
+                                                    @if ($item->isWithdrawal())
+                                                        <span class="ms-1 rounded-full bg-accent-red/10 px-1.5 py-0.5 text-[10px] font-medium text-accent-red">Penarikan</span>
+                                                    @elseif ($item->isCorrection())
+                                                        <span class="ms-1 rounded-full bg-ink-disabled/15 px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">Koreksi</span>
+                                                    @elseif ($voided)
+                                                        <span class="ms-1 rounded-full bg-ink-disabled/15 px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">Dihapus</span>
+                                                    @endif
+                                                </p>
+                                                <p class="truncate text-xs text-ink-muted">
+                                                    {{ $item->contributed_at->translatedFormat('d M Y') }}
+                                                    @if ($item->note) &middot; {{ $item->note }} @endif
+                                                </p>
+                                            </div>
+
+                                            @if ($item->isWithdrawal())
+                                                <span class="shrink-0 text-sm font-semibold tabular-nums text-accent-red">
+                                                    - Rp {{ number_format((float) $item->amount, 0, ',', '.') }}
+                                                </span>
+                                            @elseif ($item->isCorrection())
+                                                <span class="shrink-0 text-sm font-semibold tabular-nums text-ink-muted">
+                                                    - Rp {{ number_format(abs((float) $item->amount), 0, ',', '.') }}
+                                                </span>
+                                            @else
+                                                <span class="shrink-0 text-sm font-semibold tabular-nums text-accent-green {{ $voided ? 'line-through' : '' }}">
+                                                    + Rp {{ number_format((float) $item->amount, 0, ',', '.') }}
+                                                </span>
+                                            @endif
+
+                                            @if ($canModify)
+                                                <div class="flex shrink-0 items-center">
+                                                    <template x-if="!confirming">
+                                                        <div class="flex items-center gap-1">
+                                                            <button type="button" wire:click="startEdit({{ $item->id }})"
+                                                                    class="p-1 text-ink-muted transition hover:text-primary" title="Edit kontribusi">
+                                                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                                                    <path d="M12 20h9" />
+                                                                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                                                                </svg>
+                                                            </button>
+                                                            <button type="button" x-on:click="confirming = true"
+                                                                    class="p-1 text-ink-muted transition hover:text-accent-red" title="Hapus kontribusi">
+                                                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                                                    <path d="M3 6h18" />
+                                                                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                                                                    <path d="M10 11v6M14 11v6" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="confirming">
+                                                        <div class="flex items-center gap-2 text-xs">
+                                                            <span class="text-ink-muted">Yakin hapus?</span>
+                                                            <button type="button" wire:click="deleteContribution({{ $item->id }})"
+                                                                    class="font-semibold text-accent-red">Ya</button>
+                                                            <button type="button" x-on:click="confirming = false"
+                                                                    class="text-ink-muted">Batal</button>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            @endif
+                                        </div>
                                     @endif
                                 </li>
                             @endforeach

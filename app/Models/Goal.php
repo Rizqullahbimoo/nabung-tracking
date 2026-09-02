@@ -150,11 +150,10 @@ class Goal extends Model
             ->map(fn ($rows) => [
                 'user_id' => (int) $rows->first()->user_id,
                 'name' => $rows->first()->user?->name,
-                // Net per person: their deposits minus their own withdrawals,
-                // so the rows still add up to the goal balance.
-                'total' => (float) $rows->sum(
-                    fn ($row) => $row->type === 'withdrawal' ? -1 * (float) $row->amount : (float) $row->amount
-                ),
+                // Net per person: deposits, minus their own withdrawals, minus
+                // their own corrections (deleted deposits) - so the rows still
+                // add up to the goal balance.
+                'total' => (float) $rows->sum(fn ($row) => $row->signedAmount()),
             ])
             ->sortByDesc('total')
             ->values();
