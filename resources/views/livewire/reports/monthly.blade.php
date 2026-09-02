@@ -74,6 +74,66 @@ new #[Layout('layouts.app')] #[Title('Laporan Bulanan — Nabung Tracking')] cla
     }
 
     /**
+     * Deposit vs withdrawal totals for the 6 months ending at the selected
+     * month (oldest first). Grouped in PHP so it works on any DB driver.
+     *
+     * @return \Illuminate\Support\Collection<int, array{key: string, label: string, deposit: float, withdrawal: float}>
+     */
+    #[Computed]
+    public function trend()
+    {
+        $monthsBack = 6;
+
+        $buckets = collect(range($monthsBack - 1, 0))->map(function ($offset) {
+            $month = $this->period->copy()->subMonthsNoOverflow($offset);
+
+            return [
+                'key' => $month->format('Y-m'),
+                'label' => $month->translatedFormat('M'),
+                'deposit' => 0.0,
+                'withdrawal' => 0.0,
+            ];
+        })->keyBy('key');
+
+        if (! $this->pair) {
+            return $buckets->values();
+        }
+
+        $start = $this->period->copy()->subMonthsNoOverflow($monthsBack - 1)->startOfMonth();
+        $end = $this->period->copy()->endOfMonth();
+
+        $rows = Contribution::query()
+            ->whereHas('goal', fn ($query) => $query->where('pair_id', $this->pair->id))
+            ->whereBetween('contributed_at', [$start->toDateString(), $end->toDateString()])
+            ->get(['type', 'amount', 'contributed_at']);
+
+        foreach ($rows as $row) {
+            $key = $row->contributed_at->format('Y-m');
+
+            if (! $buckets->has($key) || ! in_array($row->type, ['deposit', 'withdrawal'], true)) {
+                continue;
+            }
+
+            $bucket = $buckets->get($key);
+            $bucket[$row->type] += (float) $row->amount;
+            $buckets->put($key, $bucket);
+        }
+
+        return $buckets->values();
+    }
+
+    /**
+     * Tallest bar value, used to scale the chart heights.
+     */
+    #[Computed]
+    public function trendMax(): float
+    {
+        return (float) $this->trend
+            ->flatMap(fn ($bucket) => [$bucket['deposit'], $bucket['withdrawal']])
+            ->max();
+    }
+
+    /**
      * All of the pair's contributions dated within the selected month.
      */
     #[Computed]
@@ -170,6 +230,48 @@ new #[Layout('layouts.app')] #[Title('Laporan Bulanan — Nabung Tracking')] cla
                 <span aria-hidden="true">&rarr;</span>
                 <span class="sr-only">Bulan berikutnya</span>
             </button>
+        </div>
+
+        {{-- Trend: contributions vs withdrawals, last 6 months (design.md accent-green / accent-red) --}}
+        <div class="mt-6 rounded-card border border-hairline bg-surface p-6 shadow-card sm:p-7">
+            <h2 class="text-lg font-semibold text-ink">Tren 6 bulan terakhir</h2>
+            <p class="mt-1 text-xs text-ink-muted">Total kontribusi dan penarikan per bulan.</p>
+
+            @if ($this->trendMax <= 0)
+                <p class="mt-6 text-sm text-ink-muted">
+                    Belum ada kontribusi maupun penarikan dalam 6 bulan terakhir.
+                </p>
+            @else
+                <div class="mt-6 flex items-end gap-2 sm:gap-3" style="height: 160px">
+                    @foreach ($this->trend as $bucket)
+                        @php
+                            $depositPct = (int) round($bucket['deposit'] / $this->trendMax * 100);
+                            $withdrawalPct = (int) round($bucket['withdrawal'] / $this->trendMax * 100);
+                        @endphp
+                        <div class="flex h-full flex-1 items-end justify-center gap-1">
+                            <div class="w-2.5 rounded-t bg-accent-green sm:w-3 {{ $bucket['deposit'] > 0 ? 'min-h-[3px]' : '' }}"
+                                 style="height: {{ $depositPct }}%"
+                                 title="{{ $bucket['label'] }} — Kontribusi: Rp {{ number_format($bucket['deposit'], 0, ',', '.') }}"></div>
+                            <div class="w-2.5 rounded-t bg-accent-red sm:w-3 {{ $bucket['withdrawal'] > 0 ? 'min-h-[3px]' : '' }}"
+                                 style="height: {{ $withdrawalPct }}%"
+                                 title="{{ $bucket['label'] }} — Penarikan: Rp {{ number_format($bucket['withdrawal'], 0, ',', '.') }}"></div>
+                        </div>
+                    @endforeach
+                </div>
+                <div class="mt-2 flex gap-2 border-t border-hairline pt-2 sm:gap-3">
+                    @foreach ($this->trend as $bucket)
+                        <div class="flex-1 text-center text-xs text-ink-muted">{{ $bucket['label'] }}</div>
+                    @endforeach
+                </div>
+                <div class="mt-4 flex items-center gap-4 text-xs text-ink-muted">
+                    <span class="flex items-center gap-1.5">
+                        <span class="inline-block h-2.5 w-2.5 rounded-sm bg-accent-green"></span> Kontribusi
+                    </span>
+                    <span class="flex items-center gap-1.5">
+                        <span class="inline-block h-2.5 w-2.5 rounded-sm bg-accent-red"></span> Penarikan
+                    </span>
+                </div>
+            @endif
         </div>
 
         @if ($this->contributions->isEmpty())

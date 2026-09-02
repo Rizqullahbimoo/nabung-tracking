@@ -191,4 +191,53 @@ class ReportTest extends TestCase
         $this->assertSame('Bimo Solo', $perPerson->first()['name']);
         $this->assertSame(500_000.0, $perPerson->first()['total']);
     }
+
+    public function test_trend_buckets_deposits_and_withdrawals_over_the_last_six_months(): void
+    {
+        [$a, $b, $pair] = $this->pairedUsers();
+        $goal = $this->makeGoal($pair->id, $a->id);
+
+        // September (the month being viewed).
+        $this->contribute($goal, $a, 700_000, '2026-09-05');
+        $goal->contributions()->create([
+            'user_id' => $a->id,
+            'amount' => 200_000,
+            'type' => 'withdrawal',
+            'note' => 'DP tiket',
+            'contributed_at' => '2026-09-10',
+        ]);
+        // July.
+        $this->contribute($goal, $b, 300_000, '2026-07-15');
+        // March - outside the Apr..Sep window, must be excluded.
+        $this->contribute($goal, $a, 999_000, '2026-03-01');
+
+        $this->actingAs($a);
+        $trend = Volt::test('reports.monthly')->get('trend')->keyBy('key');
+
+        $this->assertCount(6, $trend);
+        $this->assertFalse($trend->has('2026-03'));
+        $this->assertSame(700_000.0, $trend['2026-09']['deposit']);
+        $this->assertSame(200_000.0, $trend['2026-09']['withdrawal']);
+        $this->assertSame(300_000.0, $trend['2026-07']['deposit']);
+        $this->assertSame(0.0, $trend['2026-07']['withdrawal']);
+        $this->assertSame(0.0, $trend['2026-08']['deposit']);
+
+        // Oldest bucket first, newest (viewed month) last.
+        $this->assertSame('2026-04', $trend->keys()->first());
+        $this->assertSame('2026-09', $trend->keys()->last());
+    }
+
+    public function test_report_page_renders_the_trend_chart(): void
+    {
+        [$a, $b, $pair] = $this->pairedUsers();
+        $goal = $this->makeGoal($pair->id, $a->id);
+        $this->contribute($goal, $a, 500_000, '2026-09-05');
+
+        $this->actingAs($a)
+            ->get(route('reports.monthly'))
+            ->assertOk()
+            ->assertSee('Tren 6 bulan terakhir')
+            ->assertSee('Kontribusi')
+            ->assertSee('Penarikan');
+    }
 }
