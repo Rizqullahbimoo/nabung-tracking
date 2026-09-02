@@ -80,9 +80,10 @@ class User extends Authenticatable
     }
 
     /**
-     * The user's currently active pair, if any.
+     * The user's active pair. Every user always has exactly one: a "solo" pair
+     * (user_two_id = null) is created on demand until they pair up with someone.
      */
-    public function activePair(): ?Pair
+    public function activePair(): Pair
     {
         return Pair::query()
             ->where('status', 'active')
@@ -90,22 +91,44 @@ class User extends Authenticatable
                 $query->where('user_one_id', $this->id)
                     ->orWhere('user_two_id', $this->id);
             })
-            ->first();
+            ->first() ?? $this->createSoloPair();
     }
 
     /**
-     * Whether this user is currently paired with someone.
+     * Create the solo pair that represents this user saving on their own.
+     */
+    public function createSoloPair(): Pair
+    {
+        return Pair::create([
+            'user_one_id' => $this->id,
+            'user_two_id' => null,
+            'status' => 'active',
+            'paired_at' => null,
+        ]);
+    }
+
+    /**
+     * Whether the active pair has two members (i.e. this user has a partner).
+     * A solo user is NOT "paired".
      */
     public function isPaired(): bool
     {
-        return $this->activePair() !== null;
+        return $this->activePair()->user_two_id !== null;
     }
 
     /**
-     * The partner in this user's active pair, or null if unpaired.
+     * Whether the user is currently in solo mode (active pair has one member).
+     */
+    public function isSolo(): bool
+    {
+        return ! $this->isPaired();
+    }
+
+    /**
+     * The partner in this user's active pair, or null when solo.
      */
     public function partner(): ?User
     {
-        return $this->activePair()?->partnerOf($this);
+        return $this->activePair()->partnerOf($this);
     }
 }

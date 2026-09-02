@@ -3,11 +3,12 @@
 use App\Models\Goal;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('layouts.app')] #[Title('Usulkan Goal')] class extends Component
+new #[Layout('layouts.app')] #[Title('Usulkan Goal — Nabung Tracking')] class extends Component
 {
     public const CATEGORIES = ['Liburan', 'Rumah', 'Pernikahan', 'Lainnya'];
 
@@ -17,21 +18,21 @@ new #[Layout('layouts.app')] #[Title('Usulkan Goal')] class extends Component
     public ?string $target_date = null;
 
     /**
-     * Only a paired user may propose a goal.
+     * Solo pairs skip approval: goals go straight to "active".
      */
-    public function mount(): void
+    #[Computed]
+    public function isSolo(): bool
     {
-        abort_unless(Auth::user()->isPaired(), 403);
+        return Auth::user()->isSolo();
     }
 
     /**
-     * Store the proposed goal as "pending" and go back to the list.
+     * Store the goal. Solo pairs create it as "active" and self-approve;
+     * couples create it as "pending" for the partner to approve.
      */
     public function save(): void
     {
         $pair = Auth::user()->activePair();
-
-        abort_unless($pair, 403);
 
         // The nominal field is shown with thousand separators ("1.000.000");
         // keep only digits before validating/storing.
@@ -48,6 +49,8 @@ new #[Layout('layouts.app')] #[Title('Usulkan Goal')] class extends Component
             'target_date' => 'target tanggal',
         ]);
 
+        $solo = $pair->isSolo();
+
         Goal::create([
             'pair_id' => $pair->id,
             'proposed_by' => Auth::id(),
@@ -55,10 +58,14 @@ new #[Layout('layouts.app')] #[Title('Usulkan Goal')] class extends Component
             'category' => $validated['category'] ?: null,
             'target_amount' => $validated['target_amount'],
             'target_date' => $validated['target_date'] ?: null,
-            'status' => 'pending',
+            'status' => $solo ? 'active' : 'pending',
+            'approved_by' => $solo ? Auth::id() : null,
+            'approved_at' => $solo ? now() : null,
         ]);
 
-        session()->flash('status', 'Usulan goal terkirim. Menunggu persetujuan pasangan.');
+        session()->flash('status', $solo
+            ? 'Goal dibuat dan langsung aktif.'
+            : 'Usulan goal terkirim. Menunggu persetujuan pasangan.');
 
         $this->redirect(route('goals.index'), navigate: true);
     }
@@ -70,9 +77,13 @@ new #[Layout('layouts.app')] #[Title('Usulkan Goal')] class extends Component
             <a href="{{ route('goals.index') }}" wire:navigate class="text-sm text-ink-muted transition hover:text-primary">
                 &larr; Kembali ke daftar goal
             </a>
-            <h1 class="mt-2 text-xl font-bold text-ink">Usulkan goal baru</h1>
+            <h1 class="mt-2 text-xl font-bold text-ink">{{ $this->isSolo ? 'Buat goal baru' : 'Usulkan goal baru' }}</h1>
             <p class="mt-1 text-sm text-ink-muted">
-                Goal akan berstatus <span class="font-medium">Pending Approval</span> sampai pasanganmu menyetujui.
+                @if ($this->isSolo)
+                    Goal langsung <span class="font-medium">aktif</span> dan siap menerima kontribusi.
+                @else
+                    Goal akan berstatus <span class="font-medium">Pending Approval</span> sampai pasanganmu menyetujui.
+                @endif
             </p>
         </div>
 
@@ -131,7 +142,7 @@ new #[Layout('layouts.app')] #[Title('Usulkan Goal')] class extends Component
             <div class="flex items-center gap-3 pt-2">
                 <button type="submit"
                         class="inline-flex h-[52px] items-center justify-center rounded-btn bg-primary px-6 font-semibold text-white transition hover:bg-primary-dark">
-                    Kirim Usulan
+                    {{ $this->isSolo ? 'Buat Goal' : 'Kirim Usulan' }}
                 </button>
                 <a href="{{ route('goals.index') }}" wire:navigate
                    class="text-sm font-medium text-ink-muted transition hover:text-primary">

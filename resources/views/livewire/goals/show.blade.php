@@ -29,12 +29,21 @@ new #[Layout('layouts.app')] class extends Component
     }
 
     /**
-     * Pending goal + current user is the partner (not the proposer).
+     * Whether the goal's pair is still solo (approval flow doesn't apply).
+     */
+    #[Computed]
+    public function isSolo(): bool
+    {
+        return Auth::user()->activePair()->isSolo();
+    }
+
+    /**
+     * Pending goal + a couple + current user is the partner (not the proposer).
      */
     #[Computed]
     public function canDecide(): bool
     {
-        return $this->goal->status === 'pending' && ! $this->isProposer;
+        return $this->goal->status === 'pending' && ! $this->isSolo && ! $this->isProposer;
     }
 
     #[Computed]
@@ -153,7 +162,7 @@ new #[Layout('layouts.app')] class extends Component
                 </div>
             </dl>
 
-            @if ($goal->status === 'pending')
+            @if ($goal->status === 'pending' && ! $this->isSolo)
                 <div class="mt-6 border-t border-hairline pt-6">
                     @if ($this->canDecide)
                         <p class="text-sm text-ink-muted">Pasanganmu mengusulkan goal ini. Setujui untuk mengaktifkannya.</p>

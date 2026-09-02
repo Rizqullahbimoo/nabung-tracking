@@ -30,6 +30,9 @@ new #[Layout('layouts.guest')] class extends Component
 
         event(new Registered($user = User::create($validated)));
 
+        // Start every account in solo mode so they can save right away.
+        $user->createSoloPair();
+
         Auth::login($user);
 
         $this->redirect(route('dashboard', absolute: false), navigate: true);
@@ -39,7 +42,7 @@ new #[Layout('layouts.guest')] class extends Component
 <div>
     <div class="mb-6">
         <h1 class="text-xl font-bold text-ink">Buat akun</h1>
-        <p class="mt-1 text-sm text-ink-muted">Mulai catat tabungan bersama pasanganmu.</p>
+        <p class="mt-1 text-sm text-ink-muted">Mulai catat tabunganmu &mdash; sendiri atau bareng pasangan.</p>
     </div>
 
     <form wire:submit="register" class="space-y-5">

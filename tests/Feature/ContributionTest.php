@@ -79,6 +79,24 @@ class ContributionTest extends TestCase
         $this->assertSame('2026-08-30', $contribution->contributed_at->toDateString());
     }
 
+    public function test_solo_user_can_contribute_to_their_own_goal(): void
+    {
+        $solo = User::factory()->create();
+        $pair = $solo->activePair();
+        $goal = $this->makeGoal($pair->id, $solo->id);
+
+        $this->actingAs($solo);
+
+        Volt::test('contributions.create', ['goal' => $goal])
+            ->set('amount', '750000')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('goals.show', $goal));
+
+        $this->assertSame('750000.00', Contribution::first()->amount);
+        $this->assertSame($solo->id, Contribution::first()->user_id);
+    }
+
     public function test_contribution_rejected_for_a_non_active_goal(): void
     {
         [$a, $b, $pair] = $this->pairedUsers();
@@ -263,7 +281,7 @@ class ContributionTest extends TestCase
         $this->actingAs($a)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('Total Tabungan Bersama')
+            ->assertSee('Total Tabungan')
             ->assertSee('Rp 1.000.000')
             ->assertSeeText('2 goal aktif')
             ->assertSeeText('1 menunggu persetujuan')

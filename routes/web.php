@@ -21,7 +21,10 @@ Route::view('profile', 'profile')
 Route::middleware('auth')->group(function () {
     Volt::route('goals', 'goals.index')->name('goals.index');
     Volt::route('goals/create', 'goals.create')->name('goals.create');
+    Volt::route('goals/archive', 'goals.archive')->name('goals.archive');
     Volt::route('goals/{goal}', 'goals.show')->name('goals.show');
+
+    Volt::route('reports/monthly', 'reports.monthly')->name('reports.monthly');
 });
 
 require __DIR__.'/auth.php';

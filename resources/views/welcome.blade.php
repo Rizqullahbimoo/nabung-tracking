@@ -4,7 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
-        <title>{{ config('app.name', 'Tabungan Bersama') }}</title>
+        <title>{{ config('app.name', 'Nabung Tracking') }}</title>
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
@@ -16,11 +16,11 @@
             <div class="w-full max-w-md">
                 <div class="text-center">
                     <span class="inline-flex h-14 w-14 items-center justify-center rounded-card-sm bg-primary text-xl font-bold text-white">
-                        TB
+                        NT
                     </span>
-                    <h1 class="mt-5 text-2xl font-bold text-ink">Tabungan Bersama</h1>
+                    <h1 class="mt-5 text-2xl font-bold text-ink">Nabung Tracking</h1>
                     <p class="mt-2 text-sm text-ink-muted">
-                        Catat dan pantau tabungan bareng pasangan, menuju target bersama.
+                        Catat dan pantau tabunganmu &mdash; sendiri atau bareng pasangan.
                     </p>
                 </div>
 
@@ -37,7 +37,7 @@
                 </div>
 
                 <p class="mt-6 text-center text-xs text-ink-disabled">
-                    Aplikasi personal — untuk penggunaan berdua saja.
+                    Aplikasi personal untuk mencatat tabungan &mdash; solo atau berdua.
                 </p>
             </div>
         </div>

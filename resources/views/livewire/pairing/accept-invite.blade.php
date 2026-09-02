@@ -82,6 +82,17 @@ new class extends Component
         }
 
         DB::transaction(function () use ($invite, $inviter, $user) {
+            // Retire both people's solo pairs. They are kept as history (their
+            // goals & contributions stay attached) but are no longer "active".
+            Pair::query()
+                ->where('status', 'active')
+                ->whereNull('user_two_id')
+                ->whereIn('user_one_id', [$inviter->id, $user->id])
+                ->update([
+                    'status' => 'unpaired',
+                    'unpaired_at' => now(),
+                ]);
+
             Pair::create([
                 'user_one_id' => $inviter->id,
                 'user_two_id' => $user->id,

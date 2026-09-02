@@ -42,7 +42,7 @@ class GoalTest extends TestCase
         ], $overrides));
     }
 
-    public function test_paired_user_can_propose_a_goal_and_it_starts_pending(): void
+    public function test_couple_goal_is_proposed_as_pending(): void
     {
         [$proposer, $partner, $pair] = $this->pairedUsers();
 
@@ -69,13 +69,26 @@ class GoalTest extends TestCase
         $this->assertSame('50000000.00', $goal->target_amount);
     }
 
-    public function test_goal_proposal_requires_pairing(): void
+    public function test_solo_user_goal_is_created_active_and_self_approved(): void
     {
-        $user = User::factory()->create();
+        $solo = User::factory()->create();
 
-        $this->actingAs($user)
-            ->get(route('goals.create'))
-            ->assertForbidden();
+        $this->actingAs($solo);
+
+        Volt::test('goals.create')
+            ->set('name', 'Nabung Sendiri')
+            ->set('target_amount', '5000000')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('goals.index'));
+
+        $goal = Goal::first();
+
+        $this->assertNotNull($goal);
+        $this->assertSame($solo->activePair()->id, $goal->pair_id);
+        $this->assertSame('active', $goal->status);
+        $this->assertSame($solo->id, $goal->approved_by);
+        $this->assertNotNull($goal->approved_at);
     }
 
     public function test_goal_proposal_validates_input(): void
@@ -226,13 +239,14 @@ class GoalTest extends TestCase
             ->assertDontSee('Goal Mereka');
     }
 
-    public function test_index_prompts_to_pair_when_unpaired(): void
+    public function test_index_shows_empty_state_for_a_solo_user_with_no_goals(): void
     {
         $user = User::factory()->create();
 
         $this->actingAs($user)
             ->get(route('goals.index'))
             ->assertOk()
-            ->assertSee('Belum terhubung dengan pasangan');
+            ->assertSee('Belum ada goal')
+            ->assertDontSee('Belum terhubung dengan pasangan');
     }
 }

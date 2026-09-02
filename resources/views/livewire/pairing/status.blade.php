@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Pair;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
@@ -9,25 +10,21 @@ use Livewire\Volt\Component;
 new class extends Component
 {
     /**
-     * The current user's active pair (with both members eager-loaded).
+     * The current user's active pair (solo or coupled) - always present.
      */
     #[Computed]
-    public function pair(): ?Pair
+    public function pair(): Pair
     {
-        return Pair::query()
-            ->active()
-            ->forUser(Auth::user())
-            ->with(['userOne', 'userTwo'])
-            ->first();
+        return Auth::user()->activePair();
     }
 
     /**
-     * The partner within the active pair, if any.
+     * The partner within the active pair, or null when the user is still solo.
      */
     #[Computed]
-    public function partner()
+    public function partner(): ?User
     {
-        return $this->pair?->partnerOf(Auth::user());
+        return $this->pair->partnerOf(Auth::user());
     }
 
     /**
@@ -85,9 +82,16 @@ new class extends Component
         </div>
     @else
         <div class="space-y-2">
-            <h2 class="text-xl font-bold text-ink">Hubungkan dengan pasanganmu</h2>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-primary-light px-3 py-1 text-xs font-medium text-primary-dark">
+                    <span class="h-1.5 w-1.5 rounded-full bg-primary"></span>
+                    Mode solo
+                </span>
+            </div>
+            <h2 class="text-xl font-bold text-ink">Menabung sendiri dulu</h2>
             <p class="text-sm text-ink-muted">
-                Buat kode invite lalu bagikan ke pasanganmu, atau masukkan kode yang kamu terima.
+                Kamu bisa langsung membuat goal dan mencatat kontribusi. Kapan pun siap, undang
+                pasangan untuk menabung bareng &mdash; opsional.
             </p>
         </div>
 

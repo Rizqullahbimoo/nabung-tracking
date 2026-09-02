@@ -25,9 +25,9 @@ new class extends Component
                 <div class="shrink-0 flex items-center">
                     <a href="{{ route('dashboard') }}" wire:navigate class="flex items-center gap-2.5">
                         <span class="inline-flex h-9 w-9 items-center justify-center rounded-card-sm bg-primary text-sm font-bold text-white">
-                            TB
+                            NT
                         </span>
-                        <span class="text-base font-bold text-ink">Tabungan Bersama</span>
+                        <span class="text-base font-bold text-ink">Nabung Tracking</span>
                     </a>
                 </div>
 
@@ -38,6 +38,9 @@ new class extends Component
                     </x-nav-link>
                     <x-nav-link :href="route('goals.index')" :active="request()->routeIs('goals.*')" wire:navigate>
                         {{ __('Goals') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('reports.monthly')" :active="request()->routeIs('reports.*')" wire:navigate>
+                        {{ __('Laporan') }}
                     </x-nav-link>
                 </div>
             </div>
@@ -92,6 +95,9 @@ new class extends Component
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('goals.index')" :active="request()->routeIs('goals.*')" wire:navigate>
                 {{ __('Goals') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('reports.monthly')" :active="request()->routeIs('reports.*')" wire:navigate>
+                {{ __('Laporan') }}
             </x-responsive-nav-link>
         </div>
 

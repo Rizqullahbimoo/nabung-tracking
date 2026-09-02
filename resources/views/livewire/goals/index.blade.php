@@ -7,10 +7,10 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('layouts.app')] #[Title('Goals')] class extends Component
+new #[Layout('layouts.app')] #[Title('Goals — Nabung Tracking')] class extends Component
 {
     /**
-     * The current user's active pair, if any.
+     * The current user's active pair (solo or coupled) - always present.
      */
     #[Computed]
     public function pair()
@@ -24,10 +24,6 @@ new #[Layout('layouts.app')] #[Title('Goals')] class extends Component
     #[Computed]
     public function goals()
     {
-        if (! $this->pair) {
-            return collect();
-        }
-
         return Goal::query()
             ->where('pair_id', $this->pair->id)
             ->withSum('contributions as collected', 'amount')
@@ -40,12 +36,10 @@ new #[Layout('layouts.app')] #[Title('Goals')] class extends Component
     <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between">
             <h1 class="text-xl font-bold text-ink">Goal Tabungan</h1>
-            @if ($this->pair)
-                <a href="{{ route('goals.create') }}" wire:navigate
-                   class="inline-flex h-11 items-center justify-center rounded-btn bg-primary px-5 text-sm font-semibold text-white transition hover:bg-primary-dark">
-                    + Usulkan Goal
-                </a>
-            @endif
+            <a href="{{ route('goals.create') }}" wire:navigate
+               class="inline-flex h-11 items-center justify-center rounded-btn bg-primary px-5 text-sm font-semibold text-white transition hover:bg-primary-dark">
+                + Buat Goal
+            </a>
         </div>
 
         @if (session('status'))
@@ -54,21 +48,10 @@ new #[Layout('layouts.app')] #[Title('Goals')] class extends Component
             </div>
         @endif
 
-        @if (! $this->pair)
-            <div class="mt-6 rounded-card border border-hairline bg-surface p-8 text-center shadow-card">
-                <p class="text-base font-semibold text-ink">Belum terhubung dengan pasangan</p>
-                <p class="mt-1 text-sm text-ink-muted">
-                    Goal tabungan dibuat bersama pasangan. Hubungkan akunmu dulu dari dashboard.
-                </p>
-                <a href="{{ route('dashboard') }}" wire:navigate
-                   class="mt-4 inline-flex h-11 items-center justify-center rounded-btn border-[1.5px] border-primary px-5 text-sm font-semibold text-primary transition hover:bg-primary-light">
-                    Ke Dashboard
-                </a>
-            </div>
-        @elseif ($this->goals->isEmpty())
+        @if ($this->goals->isEmpty())
             <div class="mt-6 rounded-card border border-hairline bg-surface p-8 text-center shadow-card">
                 <p class="text-base font-semibold text-ink">Belum ada goal</p>
-                <p class="mt-1 text-sm text-ink-muted">Usulkan goal pertama kalian, mis. "Dana Nikah" atau "Liburan".</p>
+                <p class="mt-1 text-sm text-ink-muted">Buat goal pertamamu, mis. "Dana Nikah" atau "Liburan".</p>
             </div>
         @else
             <div class="mt-6 space-y-3">
@@ -120,5 +103,12 @@ new #[Layout('layouts.app')] #[Title('Goals')] class extends Component
                 @endforeach
             </div>
         @endif
+
+        <div class="mt-8 text-center">
+            <a href="{{ route('goals.archive') }}" wire:navigate
+               class="text-xs text-ink-muted transition hover:text-primary">
+                Lihat arsip goal
+            </a>
+        </div>
     </div>
 </div>

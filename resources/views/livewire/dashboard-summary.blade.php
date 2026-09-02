@@ -97,58 +97,54 @@ new class extends Component
 }; ?>
 
 <div>
-    @if (! $this->pair)
-        {{-- Pairing prompt is handled by <livewire:pairing.status> above. --}}
-    @else
-        {{-- Hero card (design.md §6.1) --}}
-        <div class="rounded-card bg-gradient-to-br from-primary to-primary-dark p-6 text-white shadow-card-elevated sm:p-7">
-            <p class="text-sm text-white/70">Total Tabungan Bersama</p>
-            <p class="mt-1 text-3xl font-bold tabular-nums">Rp {{ number_format($this->totalSaved, 0, ',', '.') }}</p>
+    {{-- Hero card (design.md §6.1) --}}
+    <div class="rounded-card bg-gradient-to-br from-primary to-primary-dark p-6 text-white shadow-card-elevated sm:p-7">
+        <p class="text-sm text-white/70">Total Tabungan</p>
+        <p class="mt-1 text-3xl font-bold tabular-nums">Rp {{ number_format($this->totalSaved, 0, ',', '.') }}</p>
 
-            @if ($this->activeGoals->isNotEmpty())
-                <div class="mt-4">
-                    <div class="h-1.5 overflow-hidden rounded-full bg-white/20">
-                        <div class="h-full rounded-full bg-white" style="width: {{ $this->overallProgress }}%"></div>
-                    </div>
-                    <p class="mt-1.5 text-xs text-white/70">{{ $this->overallProgress }}% dari total target goal aktif</p>
+        @if ($this->activeGoals->isNotEmpty())
+            <div class="mt-4">
+                <div class="h-1.5 overflow-hidden rounded-full bg-white/20">
+                    <div class="h-full rounded-full bg-white" style="width: {{ $this->overallProgress }}%"></div>
                 </div>
-            @endif
-
-            <div class="mt-5 flex gap-6 border-t border-white/15 pt-4 text-sm text-white/80">
-                <p><span class="text-lg font-bold tabular-nums text-white">{{ $this->activeCount }}</span> goal aktif</p>
-                <p><span class="text-lg font-bold tabular-nums text-white">{{ $this->pendingCount }}</span> menunggu persetujuan</p>
+                <p class="mt-1.5 text-xs text-white/70">{{ $this->overallProgress }}% dari total target goal aktif</p>
             </div>
+        @endif
+
+        <div class="mt-5 flex gap-6 border-t border-white/15 pt-4 text-sm text-white/80">
+            <p><span class="text-lg font-bold tabular-nums text-white">{{ $this->activeCount }}</span> goal aktif</p>
+            <p><span class="text-lg font-bold tabular-nums text-white">{{ $this->pendingCount }}</span> menunggu persetujuan</p>
+        </div>
+    </div>
+
+    {{-- Recent contributions --}}
+    <div class="mt-6 rounded-card border border-hairline bg-surface p-6 shadow-card sm:p-7">
+        <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-ink">Kontribusi terbaru</h2>
+            <a href="{{ route('goals.index') }}" wire:navigate class="text-sm font-medium text-primary transition hover:text-primary-dark">
+                Lihat semua goal
+            </a>
         </div>
 
-        {{-- Recent contributions --}}
-        <div class="mt-6 rounded-card border border-hairline bg-surface p-6 shadow-card sm:p-7">
-            <div class="flex items-center justify-between">
-                <h2 class="text-lg font-semibold text-ink">Kontribusi terbaru</h2>
-                <a href="{{ route('goals.index') }}" wire:navigate class="text-sm font-medium text-primary transition hover:text-primary-dark">
-                    Lihat semua goal
-                </a>
-            </div>
-
-            @if ($this->recentContributions->isEmpty())
-                <p class="mt-4 text-sm text-ink-muted">Belum ada kontribusi tercatat.</p>
-            @else
-                <ul class="mt-4 space-y-3">
-                    @foreach ($this->recentContributions as $item)
-                        <li class="flex items-center gap-3">
-                            <x-user-avatar :name="optional($item->user)->name" :id="$item->user_id" size="md" />
-                            <div class="min-w-0 flex-1">
-                                <p class="truncate text-sm font-medium text-ink">{{ optional($item->goal)->name ?? 'Goal' }}</p>
-                                <p class="truncate text-xs text-ink-muted">
-                                    {{ optional($item->user)->name ?? 'Pengguna' }} &middot; {{ $item->contributed_at->translatedFormat('d M Y') }}
-                                </p>
-                            </div>
-                            <span class="shrink-0 text-sm font-semibold tabular-nums text-accent-green">
-                                + Rp {{ number_format((float) $item->amount, 0, ',', '.') }}
-                            </span>
-                        </li>
-                    @endforeach
-                </ul>
-            @endif
-        </div>
-    @endif
+        @if ($this->recentContributions->isEmpty())
+            <p class="mt-4 text-sm text-ink-muted">Belum ada kontribusi tercatat.</p>
+        @else
+            <ul class="mt-4 space-y-3">
+                @foreach ($this->recentContributions as $item)
+                    <li class="flex items-center gap-3">
+                        <x-user-avatar :name="optional($item->user)->name" :id="$item->user_id" size="md" />
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-sm font-medium text-ink">{{ optional($item->goal)->name ?? 'Goal' }}</p>
+                            <p class="truncate text-xs text-ink-muted">
+                                {{ optional($item->user)->name ?? 'Pengguna' }} &middot; {{ $item->contributed_at->translatedFormat('d M Y') }}
+                            </p>
+                        </div>
+                        <span class="shrink-0 text-sm font-semibold tabular-nums text-accent-green">
+                            + Rp {{ number_format((float) $item->amount, 0, ',', '.') }}
+                        </span>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+    </div>
 </div>

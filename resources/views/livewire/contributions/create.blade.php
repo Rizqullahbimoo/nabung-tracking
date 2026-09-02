@@ -13,13 +13,11 @@ new class extends Component
     public string $contributed_at = '';
 
     /**
-     * The goal must belong to the current user's pair.
+     * The goal must belong to the current user's active pair.
      */
     public function mount(Goal $goal): void
     {
-        $pair = Auth::user()->activePair();
-
-        abort_unless($pair && $goal->pair_id === $pair->id, 403);
+        abort_unless($goal->pair_id === Auth::user()->activePair()->id, 403);
 
         $this->goal = $goal;
         $this->contributed_at = now()->toDateString();

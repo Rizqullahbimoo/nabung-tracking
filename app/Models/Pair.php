@@ -82,6 +82,14 @@ class Pair extends Model
     }
 
     /**
+     * Whether this pair currently has only one member (solo mode).
+     */
+    public function isSolo(): bool
+    {
+        return $this->user_two_id === null;
+    }
+
+    /**
      * Return the other member of this pair relative to the given user.
      */
     public function partnerOf(User $user): ?User
