@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Goal;
+use App\Support\Notifier;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Volt\Component;
 
@@ -55,7 +56,7 @@ new class extends Component
             'withdrawn_at' => 'tanggal',
         ]);
 
-        $this->goal->contributions()->create([
+        $withdrawal = $this->goal->contributions()->create([
             'user_id' => Auth::id(),
             'amount' => $validated['amount'],
             'type' => 'withdrawal',
@@ -64,6 +65,8 @@ new class extends Component
         ]);
 
         $this->goal->syncAchievedStatus();
+
+        Notifier::withdrawalAdded($this->goal, $withdrawal);
 
         session()->flash('status', 'Penarikan dana dicatat.');
 

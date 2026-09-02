@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Goal;
+use App\Support\Notifier;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Volt\Component;
 
@@ -44,7 +45,7 @@ new class extends Component
             'contributed_at' => 'tanggal kontribusi',
         ]);
 
-        $this->goal->contributions()->create([
+        $contribution = $this->goal->contributions()->create([
             'user_id' => Auth::id(),
             'amount' => $validated['amount'],
             'type' => 'deposit',
@@ -53,6 +54,8 @@ new class extends Component
         ]);
 
         $this->goal->syncAchievedStatus();
+
+        Notifier::contributionAdded($this->goal, $contribution);
 
         session()->flash('status', 'Kontribusi berhasil dicatat.');
 

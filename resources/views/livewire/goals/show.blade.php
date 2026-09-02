@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Goal;
+use App\Support\Notifier;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -90,6 +91,8 @@ new #[Layout('layouts.app')] class extends Component
             'approved_at' => now(),
         ]);
 
+        Notifier::goalDecided($this->goal, Auth::user(), approved: true);
+
         session()->flash('status', 'Goal disetujui dan sekarang aktif.');
         $this->redirect(route('goals.show', $this->goal), navigate: true);
     }
@@ -99,6 +102,8 @@ new #[Layout('layouts.app')] class extends Component
         abort_unless($this->canDecide, 403);
 
         $this->goal->update(['status' => 'rejected']);
+
+        Notifier::goalDecided($this->goal, Auth::user(), approved: false);
 
         session()->flash('status', 'Usulan goal ditolak.');
         $this->redirect(route('goals.show', $this->goal), navigate: true);

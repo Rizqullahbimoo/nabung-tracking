@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Notifier;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,6 +13,19 @@ use Illuminate\Support\Collection;
 class Goal extends Model
 {
     use HasFactory;
+
+    /**
+     * Notify members whenever a goal transitions into "achieved", no matter
+     * which code path did it.
+     */
+    protected static function booted(): void
+    {
+        static::updated(function (self $goal): void {
+            if ($goal->wasChanged('status') && $goal->status === 'achieved') {
+                Notifier::goalAchieved($goal);
+            }
+        });
+    }
 
     /**
      * The attributes that are mass assignable.

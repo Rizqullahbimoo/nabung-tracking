@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Goal;
+use App\Support\Notifier;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
@@ -51,7 +52,7 @@ new #[Layout('layouts.app')] #[Title('Usulkan Goal — Nabung Tracking')] class 
 
         $solo = $pair->isSolo();
 
-        Goal::create([
+        $goal = Goal::create([
             'pair_id' => $pair->id,
             'proposed_by' => Auth::id(),
             'name' => $validated['name'],
@@ -62,6 +63,8 @@ new #[Layout('layouts.app')] #[Title('Usulkan Goal — Nabung Tracking')] class 
             'approved_by' => $solo ? Auth::id() : null,
             'approved_at' => $solo ? now() : null,
         ]);
+
+        Notifier::goalProposed($goal);
 
         session()->flash('status', $solo
             ? 'Goal dibuat dan langsung aktif.'

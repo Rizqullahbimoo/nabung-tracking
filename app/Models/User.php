@@ -48,6 +48,17 @@ class User extends Authenticatable
     }
 
     /**
+     * In-app notifications addressed to this user.
+     *
+     * Overrides the Notifiable trait's notifications() (unused here) with a
+     * plain hasMany to our own App\Models\Notification.
+     */
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    /**
      * Invites this user has created.
      */
     public function invitesCreated(): HasMany
