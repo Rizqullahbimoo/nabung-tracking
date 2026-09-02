@@ -11,7 +11,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        // Trust reverse proxies / tunnels (cloudflared, ngrok, a hosting
+        // load balancer) so Laravel detects HTTPS from X-Forwarded-* headers
+        // and generates correct https URLs / secure cookies.
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
