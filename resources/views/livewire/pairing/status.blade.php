@@ -3,6 +3,7 @@
 use App\Models\Pair;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Volt\Component;
@@ -34,6 +35,32 @@ new class extends Component
     public function refresh(): void
     {
         unset($this->pair, $this->partner);
+    }
+
+    /**
+     * Break up the couple (F-12, PRD 6.1). The coupled pair is retired - its
+     * goals & contributions stay attached and become the read-only archive -
+     * and each member gets a fresh solo pair to keep saving on their own.
+     * Only the current user's own coupled pair can be unpaired.
+     */
+    public function unpair(): void
+    {
+        $pair = Auth::user()->activePair();
+
+        abort_unless(! $pair->isSolo(), 403);
+
+        $one = $pair->userOne;
+        $two = $pair->userTwo;
+
+        DB::transaction(function () use ($pair, $one, $two) {
+            $pair->retire();
+            $one->createSoloPair();
+            $two->createSoloPair();
+        });
+
+        session()->flash('status', 'Pairing diputuskan. Semua goal kalian sudah diarsipkan dan menjadi read-only.');
+
+        $this->redirect(route('dashboard'), navigate: true);
     }
 }; ?>
 
@@ -78,6 +105,35 @@ new class extends Component
                         Terhubung sejak {{ $this->pair->paired_at->translatedFormat('d F Y') }}
                     </p>
                 </div>
+            </div>
+
+            {{-- Unpair - rare, destructive; quiet until confirmed (design.md) --}}
+            <div class="mt-5 border-t border-hairline pt-4" x-data="{ confirming: false }">
+                <template x-if="!confirming">
+                    <button type="button" x-on:click="confirming = true"
+                            class="text-sm font-medium text-ink-muted transition hover:text-accent-red">
+                        Putuskan pairing
+                    </button>
+                </template>
+                <template x-if="confirming">
+                    <div class="space-y-3">
+                        <p class="text-sm text-ink">
+                            Yakin memutuskan pairing dengan <span class="font-semibold">{{ $partner->name }}</span>?
+                            Semua goal kalian akan <span class="font-semibold">diarsipkan dan menjadi read-only</span> &mdash;
+                            tetap bisa dilihat di Arsip, tapi tidak bisa lagi menambah kontribusi.
+                        </p>
+                        <div class="flex items-center gap-3">
+                            <button type="button" wire:click="unpair" wire:loading.attr="disabled"
+                                    class="inline-flex h-10 items-center justify-center rounded-btn bg-accent-red px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60">
+                                Ya, putuskan
+                            </button>
+                            <button type="button" x-on:click="confirming = false"
+                                    class="text-sm font-medium text-ink-muted transition hover:text-primary">
+                                Batal
+                            </button>
+                        </div>
+                    </div>
+                </template>
             </div>
         </div>
     @else

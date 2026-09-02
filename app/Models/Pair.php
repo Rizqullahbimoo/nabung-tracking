@@ -90,6 +90,19 @@ class Pair extends Model
     }
 
     /**
+     * Retire this pair: it stays as history (its goals & contributions are
+     * untouched) but is no longer anyone's active pair. Used both when an
+     * invite supersedes a solo pair and when a couple unpairs (F-12, 6.1).
+     */
+    public function retire(): void
+    {
+        $this->update([
+            'status' => 'unpaired',
+            'unpaired_at' => now(),
+        ]);
+    }
+
+    /**
      * Return the other member of this pair relative to the given user.
      */
     public function partnerOf(User $user): ?User
