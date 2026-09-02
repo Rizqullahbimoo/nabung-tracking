@@ -26,7 +26,7 @@ new #[Layout('layouts.app')] #[Title('Goals — Nabung Tracking')] class extends
     {
         return Goal::query()
             ->where('pair_id', $this->pair->id)
-            ->withSum('contributions as collected', 'amount')
+            ->withCollected()
             ->latest()
             ->get();
     }

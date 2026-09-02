@@ -250,7 +250,7 @@ class ContributionTest extends TestCase
             ->get(route('goals.show', $goal))
             ->assertOk()
             ->assertSee('Tambah Kontribusi')
-            ->assertSee('Kontribusi per orang')
+            ->assertSee('Kontribusi bersih per orang')
             ->assertSee('Rp 250.000')
             ->assertSee('Nabung awal')
             ->assertSee($a->name);

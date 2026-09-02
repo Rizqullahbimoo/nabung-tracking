@@ -27,7 +27,7 @@ new class extends Component
         return Goal::query()
             ->where('pair_id', $this->pair->id)
             ->where('status', 'active')
-            ->withSum('contributions as collected', 'amount')
+            ->withCollected()
             ->get();
     }
 
@@ -55,8 +55,10 @@ new class extends Component
             return 0.0;
         }
 
-        return (float) Contribution::whereHas('goal', fn ($query) => $query->where('pair_id', $this->pair->id))
-            ->sum('amount');
+        return (float) Contribution::query()
+            ->whereHas('goal', fn ($query) => $query->where('pair_id', $this->pair->id))
+            ->selectRaw("COALESCE(SUM(CASE WHEN type = 'withdrawal' THEN -1 * amount ELSE amount END), 0) as net")
+            ->value('net');
     }
 
     /**

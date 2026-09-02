@@ -22,7 +22,7 @@ new #[Layout('layouts.app')] #[Title('Arsip Goal — Nabung Tracking')] class ex
         return Goal::query()
             ->whereHas('pair', fn ($query) => $query->where('status', 'unpaired')->forUser($user))
             ->with('pair')
-            ->withSum('contributions as collected', 'amount')
+            ->withCollected()
             ->latest()
             ->get();
     }

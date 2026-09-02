@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -78,11 +79,37 @@ class Goal extends Model
     }
 
     /**
-     * Total contributed to this goal (SUM of contribution amounts).
+     * SQL expression for a contribution row's balance impact:
+     * withdrawals subtract, everything else adds as stored.
+     */
+    private const NET_AMOUNT_SQL = "CASE WHEN type = 'withdrawal' THEN -1 * amount ELSE amount END";
+
+    /**
+     * Current balance of the goal:
+     *   SUM(deposit) - SUM(withdrawal) + SUM(correction)
+     *
+     * Withdrawals are stored as a positive amount but subtract here.
+     * Corrections keep their existing behaviour (a signed adjustment row,
+     * per database-schema.md 2.5) and are summed as stored.
      */
     public function collectedAmount(): float
     {
-        return (float) $this->contributions()->sum('amount');
+        return (float) $this->contributions()
+            ->selectRaw('COALESCE(SUM('.self::NET_AMOUNT_SQL.'), 0) as net_amount')
+            ->value('net_amount');
+    }
+
+    /**
+     * Attach the current balance as a "collected" attribute in one query,
+     * so list views don't need N+1 calls to collectedAmount().
+     */
+    public function scopeWithCollected(Builder $query): Builder
+    {
+        return $query->addSelect([
+            'collected' => Contribution::query()
+                ->selectRaw('COALESCE(SUM('.self::NET_AMOUNT_SQL.'), 0)')
+                ->whereColumn('goal_id', 'goals.id'),
+        ]);
     }
 
     /**
@@ -109,19 +136,30 @@ class Goal extends Model
             ->map(fn ($rows) => [
                 'user_id' => (int) $rows->first()->user_id,
                 'name' => $rows->first()->user?->name,
-                'total' => (float) $rows->sum('amount'),
+                // Net per person: their deposits minus their own withdrawals,
+                // so the rows still add up to the goal balance.
+                'total' => (float) $rows->sum(
+                    fn ($row) => $row->type === 'withdrawal' ? -1 * (float) $row->amount : (float) $row->amount
+                ),
             ])
             ->sortByDesc('total')
             ->values();
     }
 
     /**
-     * Flip an active goal to "achieved" once its target is reached.
+     * Keep the goal status in sync with its balance, in both directions:
+     *   active   -> achieved  when the balance reaches the target
+     *   achieved -> active    when a withdrawal drops it back below target
      */
     public function syncAchievedStatus(): void
     {
-        if ($this->status === 'active' && $this->collectedAmount() >= (float) $this->target_amount) {
+        $collected = $this->collectedAmount();
+        $target = (float) $this->target_amount;
+
+        if ($this->status === 'active' && $collected >= $target) {
             $this->update(['status' => 'achieved']);
+        } elseif ($this->status === 'achieved' && $collected < $target) {
+            $this->update(['status' => 'active']);
         }
     }
 }

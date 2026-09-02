@@ -94,7 +94,7 @@ new #[Layout('layouts.app')] #[Title('Laporan Bulanan — Nabung Tracking')] cla
     #[Computed]
     public function total(): float
     {
-        return (float) $this->contributions->sum(fn ($c) => (float) $c->amount);
+        return (float) $this->contributions->sum(fn ($c) => $c->signedAmount());
     }
 
     /**
@@ -110,7 +110,7 @@ new #[Layout('layouts.app')] #[Title('Laporan Bulanan — Nabung Tracking')] cla
         return $this->members->map(fn ($member) => [
             'user_id' => $member->id,
             'name' => $member->name,
-            'total' => (float) ($byUser->get($member->id)?->sum(fn ($c) => (float) $c->amount) ?? 0),
+            'total' => (float) ($byUser->get($member->id)?->sum(fn ($c) => $c->signedAmount()) ?? 0),
         ]);
     }
 
@@ -138,10 +138,10 @@ new #[Layout('layouts.app')] #[Title('Laporan Bulanan — Nabung Tracking')] cla
 
                 return [
                     'name' => $goal->name,
-                    'total' => (float) $rows->sum(fn ($c) => (float) $c->amount),
+                    'total' => (float) $rows->sum(fn ($c) => $c->signedAmount()),
                     'people' => $this->members->map(fn ($member) => [
                         'name' => $member->name,
-                        'total' => (float) ($byUser->get($member->id)?->sum(fn ($c) => (float) $c->amount) ?? 0),
+                        'total' => (float) ($byUser->get($member->id)?->sum(fn ($c) => $c->signedAmount()) ?? 0),
                     ]),
                 ];
             });

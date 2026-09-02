@@ -185,35 +185,46 @@ new #[Layout('layouts.app')] class extends Component
             @endif
         </div>
 
-        {{-- Contributions --}}
+        {{-- Contributions & withdrawals --}}
         @if (in_array($goal->status, ['active', 'achieved'], true))
             <div class="mt-6 rounded-card border border-hairline bg-surface p-6 shadow-card sm:p-7"
-                 x-data="{ showForm: false }"
-                 x-on:close-contribution-form.window="showForm = false">
-                <div class="flex items-center justify-between gap-3">
-                    <h2 class="text-lg font-semibold text-ink">Kontribusi</h2>
-                    @if ($goal->status === 'active')
-                        <button type="button" x-on:click="showForm = ! showForm"
-                                class="inline-flex h-10 items-center justify-center rounded-btn bg-primary px-4 text-sm font-semibold text-white transition hover:bg-primary-dark">
-                            + Tambah Kontribusi
+                 x-data="{ panel: null }"
+                 x-on:close-contribution-form.window="panel = null">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <h2 class="text-lg font-semibold text-ink">Kontribusi &amp; Penarikan</h2>
+                    <div class="flex items-center gap-2">
+                        @if ($goal->status === 'active')
+                            <button type="button" x-on:click="panel = (panel === 'deposit' ? null : 'deposit')"
+                                    class="inline-flex h-10 items-center justify-center rounded-btn bg-primary px-4 text-sm font-semibold text-white transition hover:bg-primary-dark">
+                                + Tambah Kontribusi
+                            </button>
+                        @endif
+                        <button type="button" x-on:click="panel = (panel === 'withdraw' ? null : 'withdraw')"
+                                class="inline-flex h-10 items-center justify-center rounded-btn border-[1.5px] border-accent-red px-4 text-sm font-semibold text-accent-red transition hover:bg-accent-red/10">
+                            Tarik Dana
                         </button>
-                    @endif
+                    </div>
                 </div>
 
                 @if ($goal->status === 'active')
-                    <div x-show="showForm" x-cloak x-collapse>
+                    <div x-show="panel === 'deposit'" x-cloak x-collapse>
                         <livewire:contributions.create :goal="$goal" :key="'contrib-form-'.$goal->id" />
                     </div>
                 @endif
+                <div x-show="panel === 'withdraw'" x-cloak x-collapse>
+                    <livewire:contributions.withdraw :goal="$goal" :key="'withdraw-form-'.$goal->id" />
+                </div>
 
-                {{-- Breakdown per user (api-spec: contribution_breakdown) --}}
+                {{-- Net contribution per user (deposits minus that person's withdrawals) --}}
                 @if ($this->breakdown->isNotEmpty())
                     <div class="mt-5 space-y-2 border-t border-hairline pt-5">
-                        <p class="text-xs font-medium text-ink-muted">Kontribusi per orang</p>
+                        <p class="text-xs font-medium text-ink-muted">Kontribusi bersih per orang</p>
                         @foreach ($this->breakdown as $row)
                             <div class="flex items-center justify-between text-sm">
                                 <span class="text-ink">{{ $row['name'] ?? 'Pengguna' }}</span>
-                                <span class="font-semibold tabular-nums text-ink">Rp {{ number_format($row['total'], 0, ',', '.') }}</span>
+                                <span class="font-semibold tabular-nums {{ $row['total'] < 0 ? 'text-accent-red' : 'text-ink' }}">
+                                    Rp {{ number_format($row['total'], 0, ',', '.') }}
+                                </span>
                             </div>
                         @endforeach
                     </div>
@@ -230,15 +241,26 @@ new #[Layout('layouts.app')] class extends Component
                                 <li class="flex items-center gap-3">
                                     <x-user-avatar :name="optional($item->user)->name" :id="$item->user_id" size="md" />
                                     <div class="min-w-0 flex-1">
-                                        <p class="truncate text-sm font-medium text-ink">{{ optional($item->user)->name ?? 'Pengguna' }}</p>
+                                        <p class="truncate text-sm font-medium text-ink">
+                                            {{ optional($item->user)->name ?? 'Pengguna' }}
+                                            @if ($item->isWithdrawal())
+                                                <span class="ms-1 rounded-full bg-accent-red/10 px-1.5 py-0.5 text-[10px] font-medium text-accent-red">Penarikan</span>
+                                            @endif
+                                        </p>
                                         <p class="truncate text-xs text-ink-muted">
                                             {{ $item->contributed_at->translatedFormat('d M Y') }}
                                             @if ($item->note) &middot; {{ $item->note }} @endif
                                         </p>
                                     </div>
-                                    <span class="shrink-0 text-sm font-semibold tabular-nums text-accent-green">
-                                        + Rp {{ number_format((float) $item->amount, 0, ',', '.') }}
-                                    </span>
+                                    @if ($item->isWithdrawal())
+                                        <span class="shrink-0 text-sm font-semibold tabular-nums text-accent-red">
+                                            - Rp {{ number_format((float) $item->amount, 0, ',', '.') }}
+                                        </span>
+                                    @else
+                                        <span class="shrink-0 text-sm font-semibold tabular-nums text-accent-green">
+                                            + Rp {{ number_format((float) $item->amount, 0, ',', '.') }}
+                                        </span>
+                                    @endif
                                 </li>
                             @endforeach
                         </ul>

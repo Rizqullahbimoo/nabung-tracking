@@ -38,6 +38,22 @@ class Contribution extends Model
     }
 
     /**
+     * Whether this row records money taken out of the goal.
+     */
+    public function isWithdrawal(): bool
+    {
+        return $this->type === 'withdrawal';
+    }
+
+    /**
+     * Amount signed for balance math: negative for withdrawals.
+     */
+    public function signedAmount(): float
+    {
+        return $this->isWithdrawal() ? -1 * (float) $this->amount : (float) $this->amount;
+    }
+
+    /**
      * The goal this contribution is applied to.
      */
     public function goal(): BelongsTo
